@@ -1,0 +1,11 @@
+{
+  "name": "taskmanagement/app",
+  "description": "Task management system for workers and admins",
+  "type": "project",
+  "autoload": {
+    "psr-4": {
+      "App\\": "app/"
+    }
+  },
+  "require": {}
+}
