@@ -1,6 +1,17 @@
 <?php require __DIR__ . '/../layouts/header.php'; ?>
 <h3 class="mb-3">Worker Dashboard</h3>
 <?php if (!empty($message)): ?><div class="alert alert-warning"><?= \App\Core\Validator::e($message) ?></div><?php endif; ?>
+<div class="card mb-3"><div class="card-body">
+    <h6>Recent Notifications</h6>
+    <ul class="list-group">
+        <?php foreach (array_slice($notifications, 0, 5) as $notification): ?>
+            <li class="list-group-item d-flex justify-content-between">
+                <span><?= \App\Core\Validator::e($notification['title']) ?> - <?= \App\Core\Validator::e($notification['message']) ?></span>
+                <small><?= \App\Core\Validator::e($notification['created_at']) ?></small>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+</div></div>
 <div class="table-responsive">
 <table class="table table-bordered bg-white">
     <thead class="table-light"><tr><th>Task</th><th>Site</th><th>Status</th><th>Actions</th></tr></thead>

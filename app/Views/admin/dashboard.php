@@ -49,21 +49,33 @@
         </div></div>
     </div>
 </div>
+
 <div class="card mb-4"><div class="card-body">
-    <h5>Reports</h5>
-    <div class="row g-2">
-        <div class="col-md-4">
-            <a href="/admin/tasks/export" class="btn btn-outline-primary btn-sm w-100">Export Tasks (CSV/Excel)</a>
-        </div>
-        <div class="col-md-8">
-            <form method="post" action="/admin/tasks/import" enctype="multipart/form-data" class="d-flex gap-2">
-                <input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">
-                <input type="file" class="form-control" name="import_file" accept=".csv,text/csv" required>
-                <button class="btn btn-outline-secondary btn-sm">Import CSV</button>
-            </form>
-        </div>
+    <h5>Reports (All Types)</h5>
+    <div class="row g-2 mb-2">
+        <div class="col-md-3"><a href="/admin/reports/tasks-detailed" class="btn btn-outline-primary btn-sm w-100">Detailed Tasks</a></div>
+        <div class="col-md-3"><a href="/admin/reports/site-progress" class="btn btn-outline-primary btn-sm w-100">Site Progress</a></div>
+        <div class="col-md-3"><a href="/admin/reports/worker-performance" class="btn btn-outline-primary btn-sm w-100">Worker Performance</a></div>
+        <div class="col-md-3"><a href="/admin/reports/daily-summary" class="btn btn-outline-primary btn-sm w-100">Daily Summary</a></div>
     </div>
+    <form method="post" action="/admin/tasks/import" enctype="multipart/form-data" class="d-flex gap-2">
+        <input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">
+        <input type="file" class="form-control" name="import_file" accept=".csv,text/csv" required>
+        <button class="btn btn-outline-secondary btn-sm">Import CSV</button>
+    </form>
     <small class="text-muted">CSV headers: title,description,user_id,site_id</small>
+</div></div>
+
+<div class="card mb-4"><div class="card-body">
+    <h5>Recent Notifications</h5>
+    <ul class="list-group">
+        <?php foreach (array_slice($notifications, 0, 5) as $notification): ?>
+            <li class="list-group-item d-flex justify-content-between">
+                <span><?= \App\Core\Validator::e($notification['title']) ?> - <?= \App\Core\Validator::e($notification['message']) ?></span>
+                <small><?= \App\Core\Validator::e($notification['created_at']) ?></small>
+            </li>
+        <?php endforeach; ?>
+    </ul>
 </div></div>
 
 <div class="table-responsive">

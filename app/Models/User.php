@@ -34,6 +34,12 @@ class User
         return $stmt->fetchAll();
     }
 
+    public function allAdmins(): array
+    {
+        $stmt = $this->db->query("SELECT id, username, full_name, role FROM users WHERE role = 'admin' ORDER BY id DESC");
+        return $stmt->fetchAll();
+    }
+
     public function create(string $username, string $fullName, string $password, string $role = 'worker'): bool
     {
         $stmt = $this->db->prepare('INSERT INTO users (username, full_name, password_hash, role) VALUES (:username, :full_name, :password_hash, :role)');

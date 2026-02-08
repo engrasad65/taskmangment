@@ -5,6 +5,11 @@ declare(strict_types=1);
 require __DIR__ . '/../app/Core/Autoloader.php';
 $config = require __DIR__ . '/../config/config.php';
 
+
+$storageDir = __DIR__ . '/../storage';
+if (!is_dir($storageDir)) {
+    mkdir($storageDir, 0755, true);
+}
 $dbPath = __DIR__ . '/../storage/database.sqlite';
 if (!is_file($dbPath)) {
     touch($dbPath);
@@ -48,6 +53,16 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS tasks (
     ended_at TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (site_id) REFERENCES sites(id)
+)');
+
+$pdo->exec('CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
 )');
 
 $userModel = new App\Models\User($pdo);

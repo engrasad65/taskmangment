@@ -18,5 +18,23 @@ return [
         'base_url' => '/',
         'max_upload_size' => 2 * 1024 * 1024,
         'allowed_mime_types' => ['image/jpeg', 'image/png', 'image/webp'],
+        'role_permissions' => [
+            'admin' => [
+                'admin.dashboard',
+                'users.manage',
+                'sites.manage',
+                'tasks.manage',
+                'reports.view',
+                'reports.export',
+                'reports.import',
+                'notifications.view',
+            ],
+            'worker' => [
+                'worker.dashboard',
+                'tasks.start',
+                'tasks.end',
+                'notifications.view',
+            ],
+        ],
     ],
 ];

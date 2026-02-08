@@ -10,13 +10,24 @@ A complete PHP OOP task management system for **Workers** and **Admins** with re
 - Click **Start Work** to begin daily work
 - Upload start image
 - Upload end image and submit progress at end of day
+- Get in-app notifications for task events
 
 ### Admins
 - Login as admin
 - View all sites and progress
 - Manage users (create workers), sites, and tasks
-- Generate reports via CSV export (Excel-compatible)
+- Access **all report types**:
+  - Detailed task report
+  - Site progress report
+  - Worker performance report
+  - Daily summary report
 - Import task data from CSV/Excel-exported CSV
+- Receive notifications when workers start/complete tasks
+
+### Role Permissions
+- Configurable permission map in `config/config.php`
+- Route-level permission checks via `App\Core\Permission`
+- Role badge + permission-driven navigation experience
 
 ### Security
 - Password hashing (`password_hash`, bcrypt)

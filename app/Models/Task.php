@@ -69,4 +69,46 @@ class Task
         $stmt->execute(['id' => $id]);
         return $stmt->rowCount() === 1;
     }
+
+    public function reportBySite(): array
+    {
+        $sql = "SELECT s.name AS site_name,
+                    COUNT(t.id) AS total_tasks,
+                    SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) AS completed_tasks,
+                    SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tasks,
+                    SUM(CASE WHEN t.status = 'assigned' THEN 1 ELSE 0 END) AS assigned_tasks
+                FROM sites s
+                LEFT JOIN tasks t ON t.site_id = s.id
+                GROUP BY s.id, s.name
+                ORDER BY s.name ASC";
+        return $this->db->query($sql)->fetchAll();
+    }
+
+    public function reportByWorker(): array
+    {
+        $sql = "SELECT u.full_name AS worker_name,
+                    COUNT(t.id) AS total_tasks,
+                    SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) AS completed_tasks,
+                    SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_tasks,
+                    SUM(CASE WHEN t.status = 'assigned' THEN 1 ELSE 0 END) AS assigned_tasks
+                FROM users u
+                LEFT JOIN tasks t ON t.user_id = u.id
+                WHERE u.role = 'worker'
+                GROUP BY u.id, u.full_name
+                ORDER BY u.full_name ASC";
+        return $this->db->query($sql)->fetchAll();
+    }
+
+    public function reportDailySummary(): array
+    {
+        $sql = "SELECT DATE(COALESCE(t.started_at, t.ended_at)) AS report_date,
+                    COUNT(t.id) AS total_events,
+                    SUM(CASE WHEN t.status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+                    SUM(CASE WHEN t.status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress_count
+                FROM tasks t
+                WHERE t.started_at IS NOT NULL OR t.ended_at IS NOT NULL
+                GROUP BY DATE(COALESCE(t.started_at, t.ended_at))
+                ORDER BY report_date DESC";
+        return $this->db->query($sql)->fetchAll();
+    }
 }
