@@ -1,107 +1,102 @@
 <?php require __DIR__ . '/../layouts/header.php'; ?>
+<?php use App\Core\Csrf; use App\Core\Validator; ?>
 <h3 class="mb-3">Admin Dashboard</h3>
-<?php if (!empty($message)): ?><div class="alert alert-warning"><?= \App\Core\Validator::e($message) ?></div><?php endif; ?>
-<div class="row g-3 mb-4">
+<?php if (!empty($message)): ?><div class="alert alert-info"><?= Validator::e($message) ?></div><?php endif; ?>
+
+<div class="row g-3">
     <div class="col-lg-4">
         <div class="card"><div class="card-body">
-            <h5>Create Worker</h5>
-            <form method="post" action="/admin/users/create">
-                <input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">
-                <input class="form-control mb-2" name="username" placeholder="Username" required>
-                <input class="form-control mb-2" name="full_name" placeholder="Full name" required>
-                <input class="form-control mb-2" name="password" type="password" minlength="8" placeholder="Password (min 8 chars)" required>
-                <button class="btn btn-dark btn-sm">Create Worker</button>
+            <h5>Create User</h5>
+            <form method="post" action="/admin/users/create" class="row g-2">
+                <input type="hidden" name="_csrf" value="<?= Csrf::token() ?>">
+                <div class="col-12"><input class="form-control" name="full_name" placeholder="Full name" required></div>
+                <div class="col-12"><input class="form-control" type="email" name="email" placeholder="Email" required></div>
+                <div class="col-12"><input class="form-control" type="password" name="password" placeholder="Password (min 8)" required></div>
+                <div class="col-12"><select class="form-select" name="role"><option value="user">School Head</option><option value="admin">Admin</option></select></div>
+                <div class="col-12"><button class="btn btn-primary">Create</button></div>
             </form>
         </div></div>
     </div>
-    <div class="col-lg-4">
+    <div class="col-lg-8">
         <div class="card"><div class="card-body">
-            <h5>Add Site</h5>
-            <form method="post" action="/admin/sites/create">
-                <input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">
-                <input class="form-control mb-2" name="name" placeholder="Site name" required>
-                <input class="form-control mb-2" name="location" placeholder="Location" required>
-                <button class="btn btn-primary btn-sm">Save Site</button>
-            </form>
-        </div></div>
-    </div>
-    <div class="col-lg-4">
-        <div class="card"><div class="card-body">
-            <h5>Create Task</h5>
-            <form method="post" action="/admin/tasks/create">
-                <input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">
-                <input class="form-control mb-2" name="title" placeholder="Task title" required>
-                <textarea class="form-control mb-2" name="description" placeholder="Description"></textarea>
-                <select class="form-select mb-2" name="user_id" required>
-                    <option value="">Worker</option>
-                    <?php foreach ($workers as $worker): ?>
-                        <option value="<?= (int) $worker['id'] ?>"><?= \App\Core\Validator::e($worker['full_name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select class="form-select mb-2" name="site_id" required>
-                    <option value="">Site</option>
-                    <?php foreach ($sites as $site): ?>
-                        <option value="<?= (int) $site['id'] ?>"><?= \App\Core\Validator::e($site['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <button class="btn btn-success btn-sm">Assign Task</button>
-            </form>
+            <h5>Users</h5>
+            <div class="table-responsive"><table class="table table-sm">
+                <tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr>
+                <?php foreach ($users as $u): ?>
+                    <tr>
+                        <form method="post" action="/admin/users/update">
+                            <input type="hidden" name="_csrf" value="<?= Csrf::token() ?>">
+                            <input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
+                            <td><input class="form-control form-control-sm" name="full_name" value="<?= Validator::e($u['full_name']) ?>"></td>
+                            <td><input class="form-control form-control-sm" name="email" value="<?= Validator::e($u['email']) ?>"></td>
+                            <td><select class="form-select form-select-sm" name="role"><option value="admin" <?= $u['role']==='admin'?'selected':'' ?>>Admin</option><option value="user" <?= $u['role']==='user'?'selected':'' ?>>School Head</option></select></td>
+                            <td class="d-flex gap-1">
+                                <button class="btn btn-success btn-sm">Update</button>
+                        </form>
+                        <form method="post" action="/admin/users/delete" onsubmit="return confirm('Delete user?')">
+                            <input type="hidden" name="_csrf" value="<?= Csrf::token() ?>"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
+                            <button class="btn btn-danger btn-sm">Delete</button>
+                        </form>
+                            </td>
+                    </tr>
+                <?php endforeach; ?>
+            </table></div>
         </div></div>
     </div>
 </div>
 
-<div class="card mb-4"><div class="card-body">
-    <h5>Reports (All Types)</h5>
-    <div class="row g-2 mb-2">
-        <div class="col-md-3"><a href="/admin/reports/tasks-detailed" class="btn btn-outline-primary btn-sm w-100">Detailed Tasks</a></div>
-        <div class="col-md-3"><a href="/admin/reports/site-progress" class="btn btn-outline-primary btn-sm w-100">Site Progress</a></div>
-        <div class="col-md-3"><a href="/admin/reports/worker-performance" class="btn btn-outline-primary btn-sm w-100">Worker Performance</a></div>
-        <div class="col-md-3"><a href="/admin/reports/daily-summary" class="btn btn-outline-primary btn-sm w-100">Daily Summary</a></div>
-    </div>
-    <form method="post" action="/admin/tasks/import" enctype="multipart/form-data" class="d-flex gap-2">
-        <input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">
-        <input type="file" class="form-control" name="import_file" accept=".csv,text/csv" required>
-        <button class="btn btn-outline-secondary btn-sm">Import CSV</button>
+<div class="row g-3 mt-1">
+    <div class="col-md-4"><div class="card"><div class="card-body"><h6>Add Class</h6><form method="post" action="/admin/classes/create"><input type="hidden" name="_csrf" value="<?= Csrf::token() ?>"><input class="form-control mb-2" name="name" placeholder="Grade e.g. Grade 6"><button class="btn btn-primary btn-sm">Add</button></form></div></div></div>
+    <div class="col-md-4"><div class="card"><div class="card-body"><h6>Add Subject</h6><form method="post" action="/admin/subjects/create"><input type="hidden" name="_csrf" value="<?= Csrf::token() ?>"><select class="form-select mb-2" name="class_id"><?php foreach ($classes as $c): ?><option value="<?= (int)$c['id'] ?>"><?= Validator::e($c['name']) ?></option><?php endforeach; ?></select><input class="form-control mb-2" name="name" placeholder="Subject"><button class="btn btn-primary btn-sm">Add</button></form></div></div></div>
+    <div class="col-md-4"><div class="card"><div class="card-body"><h6>Add Chapter</h6><form method="post" action="/admin/chapters/create"><input type="hidden" name="_csrf" value="<?= Csrf::token() ?>"><select class="form-select mb-2" name="subject_id"><?php foreach ($subjects as $s): ?><option value="<?= (int)$s['id'] ?>"><?= Validator::e($s['class_name'].' - '.$s['name']) ?></option><?php endforeach; ?></select><input class="form-control mb-2" name="name" placeholder="Chapter"><button class="btn btn-primary btn-sm">Add</button></form></div></div></div>
+</div>
+
+<div class="card mt-3"><div class="card-body">
+    <h5>Question Bank</h5>
+    <form method="post" action="/admin/questions/create" class="row g-2">
+        <input type="hidden" name="_csrf" value="<?= Csrf::token() ?>">
+        <div class="col-md-2"><select class="form-select" name="class_id"><?php foreach($classes as $c): ?><option value="<?= (int)$c['id'] ?>"><?= Validator::e($c['name']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-2"><select class="form-select" name="subject_id"><?php foreach($subjects as $s): ?><option value="<?= (int)$s['id'] ?>"><?= Validator::e($s['name']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-2"><select class="form-select" name="chapter_id"><?php foreach($chapters as $ch): ?><option value="<?= (int)$ch['id'] ?>"><?= Validator::e($ch['name']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-2"><select class="form-select" name="question_type"><?php foreach($questionTypeOptions as $t): ?><option><?= Validator::e($t) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-1"><input class="form-control" type="number" name="marks" placeholder="Marks" min="1" required></div>
+        <div class="col-md-1"><input class="form-control" name="difficulty_level" placeholder="Level"></div>
+        <div class="col-md-2"><input class="form-control" name="slo_reference" placeholder="SLO ref"></div>
+        <div class="col-12"><textarea class="form-control" name="question_text" placeholder="Question" required></textarea></div>
+        <div class="col-12"><button class="btn btn-primary">Save Question</button></div>
     </form>
-    <small class="text-muted">CSV headers: title,description,user_id,site_id</small>
+
+    <form method="get" class="row g-2 mt-3">
+        <div class="col-md-2"><input class="form-control" name="q" placeholder="Search text" value="<?= Validator::e($filters['q']) ?>"></div>
+        <div class="col-md-2"><select class="form-select" name="class_id"><option value="">All classes</option><?php foreach($classes as $c): ?><option value="<?= (int)$c['id'] ?>" <?= (string)$filters['class_id']===(string)$c['id']?'selected':'' ?>><?= Validator::e($c['name']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-2"><select class="form-select" name="subject_id"><option value="">All subjects</option><?php foreach($subjects as $s): ?><option value="<?= (int)$s['id'] ?>" <?= (string)$filters['subject_id']===(string)$s['id']?'selected':'' ?>><?= Validator::e($s['name']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-2"><select class="form-select" name="chapter_id"><option value="">All chapters</option><?php foreach($chapters as $ch): ?><option value="<?= (int)$ch['id'] ?>" <?= (string)$filters['chapter_id']===(string)$ch['id']?'selected':'' ?>><?= Validator::e($ch['name']) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-2"><select class="form-select" name="question_type"><option value="">All types</option><?php foreach($questionTypeOptions as $t): ?><option value="<?= Validator::e($t) ?>" <?= $filters['question_type']===$t?'selected':'' ?>><?= Validator::e($t) ?></option><?php endforeach; ?></select></div>
+        <div class="col-md-2"><button class="btn btn-outline-primary w-100">Filter</button></div>
+    </form>
+
+    <div class="table-responsive mt-3"><table class="table table-sm align-middle"><tr><th>ID</th><th>Question</th><th>Tags</th><th>Marks</th><th>Actions</th></tr>
+        <?php foreach ($questions as $q): ?>
+        <tr>
+            <td><?= (int)$q['id'] ?></td><td><?= Validator::e($q['question_text']) ?></td>
+            <td><small><?= Validator::e($q['class_name'].' / '.$q['subject_name'].' / '.$q['chapter_name'].' / '.$q['question_type']) ?></small></td>
+            <td><?= (int)$q['marks'] ?></td>
+            <td><form method="post" action="/admin/questions/delete" onsubmit="return confirm('Delete question?')"><input type="hidden" name="_csrf" value="<?= Csrf::token() ?>"><input type="hidden" name="id" value="<?= (int)$q['id'] ?>"><button class="btn btn-danger btn-sm">Delete</button></form></td>
+        </tr>
+        <?php endforeach; ?>
+    </table></div>
+
+    <nav><ul class="pagination">
+        <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+            <li class="page-item <?= $i === $page ? 'active' : '' ?>"><a class="page-link" href="?<?= http_build_query(array_merge($filters, ['page' => $i])) ?>"><?= $i ?></a></li>
+        <?php endfor; ?>
+    </ul></nav>
 </div></div>
 
-<div class="card mb-4"><div class="card-body">
-    <h5>Recent Notifications</h5>
-    <ul class="list-group">
-        <?php foreach (array_slice($notifications, 0, 5) as $notification): ?>
-            <li class="list-group-item d-flex justify-content-between">
-                <span><?= \App\Core\Validator::e($notification['title']) ?> - <?= \App\Core\Validator::e($notification['message']) ?></span>
-                <small><?= \App\Core\Validator::e($notification['created_at']) ?></small>
-            </li>
-        <?php endforeach; ?>
-    </ul>
+<div class="card mt-3"><div class="card-body">
+    <h5>All Generated Papers</h5>
+    <table class="table table-sm"><tr><th>Title</th><th>Class</th><th>Subject</th><th>Created By</th><th>Status</th><th>Print</th></tr>
+        <?php foreach($papers as $paper): ?><tr><td><?= Validator::e($paper['title']) ?></td><td><?= Validator::e($paper['class_name']) ?></td><td><?= Validator::e($paper['subject_name']) ?></td><td><?= Validator::e($paper['created_by_name']) ?></td><td><?= Validator::e($paper['status']) ?></td><td><a class="btn btn-outline-secondary btn-sm" target="_blank" href="/paper/print?id=<?= (int)$paper['id'] ?>">Print</a></td></tr><?php endforeach; ?>
+    </table>
 </div></div>
-
-<div class="table-responsive">
-<table class="table table-striped table-bordered bg-white">
-    <thead class="table-light"><tr><th>ID</th><th>Task</th><th>Site</th><th>Worker</th><th>Status</th><th>Started</th><th>Ended</th><th>Progress</th><th>Action</th></tr></thead>
-    <tbody>
-        <?php foreach ($tasks as $task): ?>
-            <tr>
-                <td><?= (int) $task['id'] ?></td>
-                <td><?= \App\Core\Validator::e($task['title']) ?></td>
-                <td><?= \App\Core\Validator::e($task['site_name'] ?? '-') ?></td>
-                <td><?= \App\Core\Validator::e($task['full_name'] ?? '-') ?></td>
-                <td><?= \App\Core\Validator::e($task['status']) ?></td>
-                <td><?= \App\Core\Validator::e($task['started_at'] ?? '-') ?></td>
-                <td><?= \App\Core\Validator::e($task['ended_at'] ?? '-') ?></td>
-                <td><?= \App\Core\Validator::e($task['progress_note'] ?? '-') ?></td>
-                <td>
-                    <form method="post" action="/admin/tasks/delete" onsubmit="return confirm('Delete this task?')">
-                        <input type="hidden" name="_csrf" value="<?= \App\Core\Csrf::token() ?>">
-                        <input type="hidden" name="task_id" value="<?= (int) $task['id'] ?>">
-                        <button class="btn btn-sm btn-outline-danger">Delete</button>
-                    </form>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-    </tbody>
-</table>
-</div>
 <?php require __DIR__ . '/../layouts/footer.php'; ?>
