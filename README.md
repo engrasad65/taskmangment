@@ -1,42 +1,37 @@
-# Work Progress Management (PHP OOP)
+# School Exam Paper Generation System (PHP OOP)
 
-A complete PHP OOP task management system for **Workers** and **Admins** with responsive Bootstrap UI.
+A web-based role-driven exam management platform for schools.
 
 ## Features
 
-### Workers
-- Login with credentials
-- View assigned tasks
-- Click **Start Work** to begin daily work
-- Upload start image
-- Upload end image and submit progress at end of day
-- Get in-app notifications for task events
+### Authentication & Authorization
+- Secure email/password login
+- Role-based permissions:
+  - **Admin**: full access
+  - **User (School Head)**: paper creation/review/finalization
 
-### Admins
-- Login as admin
-- View all sites and progress
-- Manage users (create workers), sites, and tasks
-- Access **all report types**:
-  - Detailed task report
-  - Site progress report
-  - Worker performance report
-  - Daily summary report
-- Import task data from CSV/Excel-exported CSV
-- Receive notifications when workers start/complete tasks
+### Admin Capabilities
+- User management (CRUD): Admin + School Head roles
+- Academic hierarchy management:
+  - Classes
+  - Subjects under class
+  - Chapters under subject
+- Question bank management (CRUD-ready for create/delete and update endpoint):
+  - MCQ, True/False, Fill in the Blanks, Short, Long, SLO-Based
+  - Tags: class, subject, chapter, type
+  - Marks, difficulty level, SLO reference
+- Question filters + search + pagination
+- View and print all generated papers
 
-### Role Permissions
-- Configurable permission map in `config/config.php`
-- Route-level permission checks via `App\Core\Permission`
-- Role badge + permission-driven navigation experience
-
-### Security
-- Password hashing (`password_hash`, bcrypt)
-- SQL injection prevention (PDO prepared statements)
-- XSS protection (`htmlspecialchars` escape helper)
-- File upload validation (mime type + size + random filename)
-- Session security (HTTPOnly + SameSite cookies, strict mode, session regeneration)
-- CSRF protection (token for all forms)
-- Task ownership and state checks for worker actions
+### School Head Capabilities
+- Create exam papers by selecting class/subject/chapters
+- Configure question quantity by type
+- Smart random generation (no duplicate questions in same paper)
+- Review and edit paper:
+  - Replace question
+  - Remove question
+  - Reorder questions
+- Finalize and print paper
 
 ## Stack
 - PHP 8+
@@ -52,34 +47,13 @@ php -S 0.0.0.0:8000 -t public
 
 Open: `http://localhost:8000`
 
-## Container setup (target container)
-
-```bash
-docker compose up --build
-```
-
-Open: `http://localhost:8080`
-
-Then initialize database once:
-
-```bash
-docker compose exec app php scripts/setup.php
-```
-
-### Default users
-- Admin: `admin / admin123`
-- Worker: `worker1 / worker123`
-
-## CSV import format
-
-```csv
-title,description,user_id,site_id
-```
+## Default users
+- Admin: `admin@school.local / admin12345`
+- School Head: `head@school.local / head12345`
 
 ## Project structure
 - `app/Controllers` – request handlers
 - `app/Models` – DB interaction
-- `app/Core` – core helpers
 - `app/Views` – templates
 - `public/index.php` – front controller/router
-- `scripts/setup.php` – DB migration + seed
+- `scripts/setup.php` – migration + seed

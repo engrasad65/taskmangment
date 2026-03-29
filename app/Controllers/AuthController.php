@@ -24,15 +24,15 @@ class AuthController extends Controller
             return;
         }
 
-        $username = trim($_POST['username'] ?? '');
+        $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
 
-        if (!Validator::required($username) || !Validator::required($password)) {
-            $this->showLogin('Username and password are required.');
+        if (!Validator::required($email) || !Validator::required($password)) {
+            $this->showLogin('Email and password are required.');
             return;
         }
 
-        $user = $userModel->findByUsername($username);
+        $user = $userModel->findByEmail($email);
         if (!$user || !password_verify($password, $user['password_hash'])) {
             $this->showLogin('Invalid credentials.');
             return;
@@ -41,20 +41,16 @@ class AuthController extends Controller
         Session::regenerate();
         Session::set('user', [
             'id' => (int) $user['id'],
-            'username' => $user['username'],
+            'email' => $user['email'],
             'full_name' => $user['full_name'],
             'role' => $user['role'],
         ]);
 
-        $this->redirect($user['role'] === 'admin' ? '/admin/dashboard' : '/worker/dashboard');
+        $this->redirect($user['role'] === 'admin' ? '/admin/dashboard' : '/user/dashboard');
     }
 
     public function logout(): void
     {
-        if (!Csrf::verify($_POST['_csrf'] ?? null)) {
-            $this->redirect('/');
-        }
-
         Session::destroy();
         $this->redirect('/');
     }

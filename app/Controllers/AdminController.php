@@ -6,225 +6,178 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Core\Csrf;
-use App\Core\Session;
 use App\Core\Validator;
-use App\Models\Notification;
-use App\Models\Site;
-use App\Models\Task;
+use App\Models\Academic;
+use App\Models\ExamPaper;
+use App\Models\QuestionBank;
 use App\Models\User;
 
 class AdminController extends Controller
 {
-    public function dashboard(Task $taskModel, Site $siteModel, User $userModel, Notification $notificationModel, ?string $message = null): void
+    public function dashboard(User $userModel, Academic $academicModel, QuestionBank $questionBankModel, ExamPaper $paperModel, ?string $message = null): void
     {
-        $user = Session::get('user');
+        $filters = [
+            'class_id' => $_GET['class_id'] ?? '',
+            'subject_id' => $_GET['subject_id'] ?? '',
+            'chapter_id' => $_GET['chapter_id'] ?? '',
+            'question_type' => $_GET['question_type'] ?? '',
+            'q' => trim($_GET['q'] ?? ''),
+        ];
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $limit = 10;
+        $offset = ($page - 1) * $limit;
+
+        $totalQuestions = $questionBankModel->count($filters);
+
         $this->view('admin/dashboard', [
-            'tasks' => $taskModel->allWithUsers(),
-            'sites' => $siteModel->all(),
-            'workers' => $userModel->allWorkers(),
-            'notifications' => $notificationModel->forUser((int) $user['id']),
+            'users' => $userModel->all(),
+            'classes' => $academicModel->allClasses(),
+            'subjects' => $academicModel->allSubjects(),
+            'chapters' => $academicModel->allChapters(),
+            'questions' => $questionBankModel->paginated($filters, $limit, $offset),
+            'filters' => $filters,
+            'questionTypeOptions' => ['MCQ', 'True/False', 'Fill in the Blanks', 'Short Question', 'Long Question', 'SLO-Based'],
+            'page' => $page,
+            'totalPages' => max(1, (int) ceil($totalQuestions / $limit)),
+            'papers' => $paperModel->listAll(),
             'message' => $message,
         ]);
     }
 
-    public function createWorker(User $userModel, Task $taskModel, Site $siteModel, Notification $notificationModel): void
+    public function createUser(User $userModel, Academic $academicModel, QuestionBank $questionBankModel, ExamPaper $paperModel): void
     {
         if (!Csrf::verify($_POST['_csrf'] ?? null)) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'CSRF validation failed.');
+            $this->dashboard($userModel, $academicModel, $questionBankModel, $paperModel, 'CSRF validation failed.');
             return;
         }
-
-        $username = trim($_POST['username'] ?? '');
-        $fullName = trim($_POST['full_name'] ?? '');
+        $name = trim($_POST['full_name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
+        $role = $_POST['role'] ?? 'user';
 
-        if (!Validator::required($username) || !Validator::required($fullName) || strlen($password) < 8) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'Username, full name, and a password of at least 8 chars are required.');
+        if (!Validator::required($name) || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 8 || !in_array($role, ['admin', 'user'], true)) {
+            $this->dashboard($userModel, $academicModel, $questionBankModel, $paperModel, 'Valid full name, email, role, and password (min 8) are required.');
             return;
         }
 
-        if ($userModel->findByUsername($username)) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'Username already exists.');
+        if ($userModel->findByEmail($email)) {
+            $this->dashboard($userModel, $academicModel, $questionBankModel, $paperModel, 'Email already exists.');
             return;
         }
 
-        $userModel->create($username, $fullName, $password, 'worker');
-        $createdUser = $userModel->findByUsername($username);
-        if ($createdUser) {
-            $notificationModel->create((int) $createdUser['id'], 'Welcome', 'Your worker account was created by admin.');
-        }
-
+        $userModel->create($name, $email, $password, $role);
         $this->redirect('/admin/dashboard');
     }
 
-    public function createSite(Site $siteModel, Task $taskModel, User $userModel, Notification $notificationModel): void
+    public function updateUser(User $userModel): void
     {
         if (!Csrf::verify($_POST['_csrf'] ?? null)) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'CSRF validation failed.');
-            return;
+            $this->redirect('/admin/dashboard');
         }
-
-        $name = trim($_POST['name'] ?? '');
-        $location = trim($_POST['location'] ?? '');
-        if (!Validator::required($name) || !Validator::required($location)) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'Site name and location are required.');
-            return;
+        $id = (int) ($_POST['id'] ?? 0);
+        $name = trim($_POST['full_name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $role = $_POST['role'] ?? 'user';
+        if ($id > 0 && Validator::required($name) && filter_var($email, FILTER_VALIDATE_EMAIL) && in_array($role, ['admin', 'user'], true)) {
+            $userModel->update($id, $name, $email, $role);
         }
-
-        $siteModel->create($name, $location);
         $this->redirect('/admin/dashboard');
     }
 
-    public function createTask(Task $taskModel, Site $siteModel, User $userModel, Notification $notificationModel): void
+    public function deleteUser(User $userModel): void
     {
         if (!Csrf::verify($_POST['_csrf'] ?? null)) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'CSRF validation failed.');
-            return;
+            $this->redirect('/admin/dashboard');
         }
-
-        $title = trim($_POST['title'] ?? '');
-        $description = trim($_POST['description'] ?? '');
-        $userId = (int) ($_POST['user_id'] ?? 0);
-        $siteId = (int) ($_POST['site_id'] ?? 0);
-
-        if (!Validator::required($title) || $userId < 1 || $siteId < 1) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'Task title, worker, and site are required.');
-            return;
+        $id = (int) ($_POST['id'] ?? 0);
+        if ($id > 0) {
+            $userModel->delete($id);
         }
-
-        if (!$userModel->findById($userId) || !$siteModel->findById($siteId)) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'Invalid worker or site selected.');
-            return;
-        }
-
-        $taskModel->create($title, $userId, $siteId, $description);
-        $notificationModel->create($userId, 'New Task Assigned', 'A new task "' . $title . '" has been assigned to you.');
         $this->redirect('/admin/dashboard');
     }
 
-    public function deleteTask(Task $taskModel, Site $siteModel, User $userModel, Notification $notificationModel): void
+    public function createClass(Academic $academicModel): void
     {
-        if (!Csrf::verify($_POST['_csrf'] ?? null)) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'CSRF validation failed.');
-            return;
+        if (Csrf::verify($_POST['_csrf'] ?? null) && Validator::required($_POST['name'] ?? '')) {
+            $academicModel->createClass(trim((string) $_POST['name']));
         }
-
-        $taskId = (int) ($_POST['task_id'] ?? 0);
-        if ($taskId < 1 || !$taskModel->deleteById($taskId)) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'Task not found.');
-            return;
-        }
-
         $this->redirect('/admin/dashboard');
     }
 
-    public function exportTasksDetailed(Task $taskModel): void
+    public function createSubject(Academic $academicModel): void
     {
-        $tasks = $taskModel->allWithUsers();
-        $this->exportCsv('tasks_detailed.csv', ['ID', 'Title', 'Site', 'Worker', 'Status', 'Started At', 'Ended At', 'Progress'], array_map(
-            static fn(array $task): array => [
-                $task['id'],
-                $task['title'],
-                $task['site_name'],
-                $task['full_name'],
-                $task['status'],
-                $task['started_at'],
-                $task['ended_at'],
-                $task['progress_note'],
-            ],
-            $tasks
-        ));
-    }
-
-    public function exportReportBySite(Task $taskModel): void
-    {
-        $rows = $taskModel->reportBySite();
-        $this->exportCsv('report_by_site.csv', ['Site', 'Total Tasks', 'Completed', 'In Progress', 'Assigned'], array_map(
-            static fn(array $row): array => [$row['site_name'], $row['total_tasks'], $row['completed_tasks'], $row['in_progress_tasks'], $row['assigned_tasks']],
-            $rows
-        ));
-    }
-
-    public function exportReportByWorker(Task $taskModel): void
-    {
-        $rows = $taskModel->reportByWorker();
-        $this->exportCsv('report_by_worker.csv', ['Worker', 'Total Tasks', 'Completed', 'In Progress', 'Assigned'], array_map(
-            static fn(array $row): array => [$row['worker_name'], $row['total_tasks'], $row['completed_tasks'], $row['in_progress_tasks'], $row['assigned_tasks']],
-            $rows
-        ));
-    }
-
-    public function exportDailySummary(Task $taskModel): void
-    {
-        $rows = $taskModel->reportDailySummary();
-        $this->exportCsv('report_daily_summary.csv', ['Date', 'Total Events', 'Completed', 'In Progress'], array_map(
-            static fn(array $row): array => [$row['report_date'], $row['total_events'], $row['completed_count'], $row['in_progress_count']],
-            $rows
-        ));
-    }
-
-    public function importTasks(Task $taskModel, Site $siteModel, User $userModel, Notification $notificationModel): void
-    {
-        if (!Csrf::verify($_POST['_csrf'] ?? null)) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'CSRF validation failed.');
-            return;
-        }
-
-        if (!isset($_FILES['import_file']) || $_FILES['import_file']['error'] !== UPLOAD_ERR_OK) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'Import file upload failed.');
-            return;
-        }
-
-        $file = $_FILES['import_file'];
-        if (($file['size'] ?? 0) > 2 * 1024 * 1024) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'Import file is too large.');
-            return;
-        }
-
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime = finfo_file($finfo, $file['tmp_name']) ?: '';
-        finfo_close($finfo);
-        $allowed = ['text/plain', 'text/csv', 'application/vnd.ms-excel'];
-        if (!in_array($mime, $allowed, true)) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'Invalid import file type. Please upload CSV.');
-            return;
-        }
-
-        $handle = fopen($file['tmp_name'], 'r');
-        if ($handle === false) {
-            $this->dashboard($taskModel, $siteModel, $userModel, $notificationModel, 'Unable to read import file.');
-            return;
-        }
-
-        fgetcsv($handle);
-        while (($row = fgetcsv($handle)) !== false) {
-            if (count($row) < 4) {
-                continue;
-            }
-            $title = trim($row[0]);
-            $description = trim($row[1]);
-            $importUserId = (int) $row[2];
-            $importSiteId = (int) $row[3];
-            if ($title !== '' && $importUserId > 0 && $importSiteId > 0 && $userModel->findById($importUserId) && $siteModel->findById($importSiteId)) {
-                $taskModel->create($title, $importUserId, $importSiteId, $description);
-                $notificationModel->create($importUserId, 'Task Imported', 'Imported task "' . $title . '" has been assigned to you.');
+        if (Csrf::verify($_POST['_csrf'] ?? null)) {
+            $classId = (int) ($_POST['class_id'] ?? 0);
+            $name = trim($_POST['name'] ?? '');
+            if ($classId > 0 && Validator::required($name)) {
+                $academicModel->createSubject($classId, $name);
             }
         }
-        fclose($handle);
-
         $this->redirect('/admin/dashboard');
     }
 
-    private function exportCsv(string $fileName, array $headers, array $rows): void
+    public function createChapter(Academic $academicModel): void
     {
-        header('Content-Type: text/csv');
-        header('Content-Disposition: attachment; filename="' . $fileName . '"');
-        $output = fopen('php://output', 'w');
-        fputcsv($output, $headers);
-        foreach ($rows as $row) {
-            fputcsv($output, $row);
+        if (Csrf::verify($_POST['_csrf'] ?? null)) {
+            $subjectId = (int) ($_POST['subject_id'] ?? 0);
+            $name = trim($_POST['name'] ?? '');
+            if ($subjectId > 0 && Validator::required($name)) {
+                $academicModel->createChapter($subjectId, $name);
+            }
         }
-        fclose($output);
-        exit;
+        $this->redirect('/admin/dashboard');
+    }
+
+    public function createQuestion(QuestionBank $questionBankModel): void
+    {
+        if (!Csrf::verify($_POST['_csrf'] ?? null)) {
+            $this->redirect('/admin/dashboard');
+        }
+        $data = [
+            'class_id' => (int) ($_POST['class_id'] ?? 0),
+            'subject_id' => (int) ($_POST['subject_id'] ?? 0),
+            'chapter_id' => (int) ($_POST['chapter_id'] ?? 0),
+            'question_type' => trim($_POST['question_type'] ?? ''),
+            'question_text' => trim($_POST['question_text'] ?? ''),
+            'marks' => (int) ($_POST['marks'] ?? 0),
+            'difficulty_level' => trim($_POST['difficulty_level'] ?? ''),
+            'slo_reference' => trim($_POST['slo_reference'] ?? ''),
+        ];
+        if ($data['class_id'] > 0 && $data['subject_id'] > 0 && $data['chapter_id'] > 0 && Validator::required($data['question_type']) && Validator::required($data['question_text']) && $data['marks'] > 0) {
+            $questionBankModel->create($data);
+        }
+        $this->redirect('/admin/dashboard');
+    }
+
+    public function updateQuestion(QuestionBank $questionBankModel): void
+    {
+        if (!Csrf::verify($_POST['_csrf'] ?? null)) {
+            $this->redirect('/admin/dashboard');
+        }
+        $id = (int) ($_POST['id'] ?? 0);
+        if ($id > 0) {
+            $questionBankModel->update($id, [
+                'class_id' => (int) ($_POST['class_id'] ?? 0),
+                'subject_id' => (int) ($_POST['subject_id'] ?? 0),
+                'chapter_id' => (int) ($_POST['chapter_id'] ?? 0),
+                'question_type' => trim($_POST['question_type'] ?? ''),
+                'question_text' => trim($_POST['question_text'] ?? ''),
+                'marks' => (int) ($_POST['marks'] ?? 0),
+                'difficulty_level' => trim($_POST['difficulty_level'] ?? ''),
+                'slo_reference' => trim($_POST['slo_reference'] ?? ''),
+            ]);
+        }
+        $this->redirect('/admin/dashboard');
+    }
+
+    public function deleteQuestion(QuestionBank $questionBankModel): void
+    {
+        if (Csrf::verify($_POST['_csrf'] ?? null)) {
+            $id = (int) ($_POST['id'] ?? 0);
+            if ($id > 0) {
+                $questionBankModel->delete($id);
+            }
+        }
+        $this->redirect('/admin/dashboard');
     }
 }

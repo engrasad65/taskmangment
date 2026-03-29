@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 use App\Controllers\AdminController;
 use App\Controllers\AuthController;
-use App\Controllers\NotificationController;
-use App\Controllers\WorkerController;
+use App\Controllers\PaperController;
 use App\Core\Csrf;
 use App\Core\Database;
 use App\Core\Permission;
 use App\Core\Session;
-use App\Models\Notification;
-use App\Models\Site;
-use App\Models\Task;
+use App\Models\Academic;
+use App\Models\ExamPaper;
+use App\Models\QuestionBank;
 use App\Models\User;
 
 require __DIR__ . '/../app/Core/Autoloader.php';
@@ -21,27 +20,18 @@ $config = require __DIR__ . '/../config/config.php';
 Session::start();
 $db = Database::connection($config['db']);
 
-header('X-Frame-Options: DENY');
-header('X-Content-Type-Options: nosniff');
-header('Referrer-Policy: strict-origin-when-cross-origin');
-
 $authController = new AuthController($config);
-$workerController = new WorkerController($config);
 $adminController = new AdminController($config);
-$notificationController = new NotificationController($config);
+$paperController = new PaperController($config);
 
 $userModel = new User($db);
-$taskModel = new Task($db);
-$siteModel = new Site($db);
-$notificationModel = new Notification($db);
+$academicModel = new Academic($db);
+$questionBankModel = new QuestionBank($db);
+$paperModel = new ExamPaper($db);
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/';
 $method = $_SERVER['REQUEST_METHOD'];
 $user = Session::get('user');
-
-if ($user) {
-    Session::set('unread_notifications', $notificationModel->unreadCount((int) $user['id']));
-}
 
 $needsAuth = static function () use ($user): void {
     if (!$user) {
@@ -51,8 +41,7 @@ $needsAuth = static function () use ($user): void {
 };
 
 $requiresPermission = static function (string $permission) use ($user, $config): void {
-    $role = $user['role'] ?? null;
-    if (!Permission::can($role, $permission, $config)) {
+    if (!Permission::can($user['role'] ?? null, $permission, $config)) {
         http_response_code(403);
         echo 'Forbidden';
         exit;
@@ -75,82 +64,85 @@ switch ([$method, $uri]) {
         $authController->logout();
         break;
 
-    case ['GET', '/worker/dashboard']:
-        $needsAuth();
-        $requiresPermission('worker.dashboard');
-        $workerController->dashboard($taskModel, $notificationModel);
-        break;
-    case ['POST', '/worker/start']:
-        $needsAuth();
-        $requiresPermission('tasks.start');
-        $workerController->startWork($taskModel, $userModel, $notificationModel);
-        break;
-    case ['POST', '/worker/end']:
-        $needsAuth();
-        $requiresPermission('tasks.end');
-        $workerController->endWork($taskModel, $userModel, $notificationModel);
-        break;
-
     case ['GET', '/admin/dashboard']:
         $needsAuth();
         $requiresPermission('admin.dashboard');
-        $adminController->dashboard($taskModel, $siteModel, $userModel, $notificationModel);
+        $adminController->dashboard($userModel, $academicModel, $questionBankModel, $paperModel);
         break;
     case ['POST', '/admin/users/create']:
         $needsAuth();
         $requiresPermission('users.manage');
-        $adminController->createWorker($userModel, $taskModel, $siteModel, $notificationModel);
+        $adminController->createUser($userModel, $academicModel, $questionBankModel, $paperModel);
         break;
-    case ['POST', '/admin/sites/create']:
+    case ['POST', '/admin/users/update']:
         $needsAuth();
-        $requiresPermission('sites.manage');
-        $adminController->createSite($siteModel, $taskModel, $userModel, $notificationModel);
+        $requiresPermission('users.manage');
+        $adminController->updateUser($userModel);
         break;
-    case ['POST', '/admin/tasks/create']:
+    case ['POST', '/admin/users/delete']:
         $needsAuth();
-        $requiresPermission('tasks.manage');
-        $adminController->createTask($taskModel, $siteModel, $userModel, $notificationModel);
+        $requiresPermission('users.manage');
+        $adminController->deleteUser($userModel);
         break;
-    case ['POST', '/admin/tasks/delete']:
+    case ['POST', '/admin/classes/create']:
         $needsAuth();
-        $requiresPermission('tasks.manage');
-        $adminController->deleteTask($taskModel, $siteModel, $userModel, $notificationModel);
+        $requiresPermission('academic.manage');
+        $adminController->createClass($academicModel);
         break;
-    case ['GET', '/admin/reports/tasks-detailed']:
+    case ['POST', '/admin/subjects/create']:
         $needsAuth();
-        $requiresPermission('reports.export');
-        $adminController->exportTasksDetailed($taskModel);
+        $requiresPermission('academic.manage');
+        $adminController->createSubject($academicModel);
         break;
-    case ['GET', '/admin/reports/site-progress']:
+    case ['POST', '/admin/chapters/create']:
         $needsAuth();
-        $requiresPermission('reports.export');
-        $adminController->exportReportBySite($taskModel);
+        $requiresPermission('academic.manage');
+        $adminController->createChapter($academicModel);
         break;
-    case ['GET', '/admin/reports/worker-performance']:
+    case ['POST', '/admin/questions/create']:
         $needsAuth();
-        $requiresPermission('reports.export');
-        $adminController->exportReportByWorker($taskModel);
+        $requiresPermission('questions.manage');
+        $adminController->createQuestion($questionBankModel);
         break;
-    case ['GET', '/admin/reports/daily-summary']:
+    case ['POST', '/admin/questions/update']:
         $needsAuth();
-        $requiresPermission('reports.export');
-        $adminController->exportDailySummary($taskModel);
+        $requiresPermission('questions.manage');
+        $adminController->updateQuestion($questionBankModel);
         break;
-    case ['POST', '/admin/tasks/import']:
+    case ['POST', '/admin/questions/delete']:
         $needsAuth();
-        $requiresPermission('reports.import');
-        $adminController->importTasks($taskModel, $siteModel, $userModel, $notificationModel);
+        $requiresPermission('questions.manage');
+        $adminController->deleteQuestion($questionBankModel);
         break;
 
-    case ['GET', '/notifications']:
+    case ['GET', '/user/dashboard']:
         $needsAuth();
-        $requiresPermission('notifications.view');
-        $notificationController->index($notificationModel);
+        $requiresPermission('papers.create');
+        $paperController->dashboard($academicModel, $paperModel);
         break;
-    case ['POST', '/notifications/read-all']:
+    case ['POST', '/paper/generate']:
         $needsAuth();
-        $requiresPermission('notifications.view');
-        $notificationController->markAllRead($notificationModel);
+        $requiresPermission('papers.create');
+        $paperController->generate($academicModel, $paperModel, $questionBankModel);
+        break;
+    case ['GET', '/paper/review']:
+        $needsAuth();
+        $requiresPermission('papers.edit_own');
+        $paperController->review($paperModel, $questionBankModel);
+        break;
+    case ['POST', '/paper/items/update']:
+        $needsAuth();
+        $requiresPermission('papers.edit_own');
+        $paperController->updateItems($paperModel, $questionBankModel);
+        break;
+    case ['POST', '/paper/finalize']:
+        $needsAuth();
+        $requiresPermission('papers.edit_own');
+        $paperController->finalize($paperModel);
+        break;
+    case ['GET', '/paper/print']:
+        $needsAuth();
+        $paperController->print($paperModel);
         break;
 
     default:

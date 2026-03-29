@@ -11,19 +11,16 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
     <div class="container">
         <a class="navbar-brand" href="#"><?= Validator::e($config['app']['name']) ?></a>
-        <div class="ms-auto d-flex gap-2 align-items-center">
-            <?php if (Session::has('user')): ?>
-                <?php $user = Session::get('user'); $unread = (int) Session::get('unread_notifications', 0); ?>
+        <?php if (Session::has('user')): $user = Session::get('user'); ?>
+            <div class="ms-auto d-flex gap-2 align-items-center">
                 <span class="badge bg-light text-primary text-uppercase"><?= Validator::e($user['role']) ?></span>
-                <a href="/notifications" class="btn btn-light btn-sm">
-                    Notifications <?= $unread > 0 ? '(' . $unread . ')' : '' ?>
-                </a>
+                <span class="text-white small"><?= Validator::e($user['full_name']) ?></span>
                 <form method="post" action="/logout" class="d-inline">
                     <input type="hidden" name="_csrf" value="<?= Csrf::token() ?>">
                     <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
                 </form>
-            <?php endif; ?>
-        </div>
+            </div>
+        <?php endif; ?>
     </div>
 </nav>
 <div class="container pb-5">

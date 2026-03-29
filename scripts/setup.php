@@ -5,7 +5,6 @@ declare(strict_types=1);
 require __DIR__ . '/../app/Core/Autoloader.php';
 $config = require __DIR__ . '/../config/config.php';
 
-
 $storageDir = __DIR__ . '/../storage';
 if (!is_dir($storageDir)) {
     mkdir($storageDir, 0755, true);
@@ -18,75 +17,114 @@ if (!is_file($dbPath)) {
 $pdo = App\Core\Database::connection($config['db']);
 $pdo->exec('PRAGMA foreign_keys = ON');
 
-$uploadDirs = [__DIR__ . '/../public/uploads/start', __DIR__ . '/../public/uploads/end'];
-foreach ($uploadDirs as $dir) {
-    if (!is_dir($dir)) {
-        mkdir($dir, 0755, true);
-    }
-}
+$pdo->exec('DROP TABLE IF EXISTS exam_paper_items');
+$pdo->exec('DROP TABLE IF EXISTS exam_papers');
+$pdo->exec('DROP TABLE IF EXISTS questions');
+$pdo->exec('DROP TABLE IF EXISTS chapters');
+$pdo->exec('DROP TABLE IF EXISTS subjects');
+$pdo->exec('DROP TABLE IF EXISTS classes');
+$pdo->exec('DROP TABLE IF EXISTS notifications');
+$pdo->exec('DROP TABLE IF EXISTS tasks');
+$pdo->exec('DROP TABLE IF EXISTS sites');
+$pdo->exec('DROP TABLE IF EXISTS users');
 
-$pdo->exec('CREATE TABLE IF NOT EXISTS users (
+$pdo->exec('CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ("admin", "worker"))
+    role TEXT NOT NULL CHECK(role IN ("admin", "user"))
 )');
 
-$pdo->exec('CREATE TABLE IF NOT EXISTS sites (
+$pdo->exec('CREATE TABLE classes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL
+)');
+
+$pdo->exec('CREATE TABLE subjects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_id INTEGER NOT NULL,
     name TEXT NOT NULL,
-    location TEXT NOT NULL
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
 )');
 
-$pdo->exec('CREATE TABLE IF NOT EXISTS tasks (
+$pdo->exec('CREATE TABLE chapters (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT,
-    user_id INTEGER NOT NULL,
-    site_id INTEGER NOT NULL,
-    status TEXT NOT NULL DEFAULT "assigned" CHECK(status IN ("assigned", "in_progress", "completed")),
-    start_image TEXT,
-    end_image TEXT,
-    progress_note TEXT,
-    started_at TEXT,
-    ended_at TEXT,
-    FOREIGN KEY (user_id) REFERENCES users(id),
-    FOREIGN KEY (site_id) REFERENCES sites(id)
+    subject_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
 )');
 
-$pdo->exec('CREATE TABLE IF NOT EXISTS notifications (
+$pdo->exec('CREATE TABLE questions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
+    class_id INTEGER NOT NULL,
+    subject_id INTEGER NOT NULL,
+    chapter_id INTEGER NOT NULL,
+    question_type TEXT NOT NULL,
+    question_text TEXT NOT NULL,
+    marks INTEGER NOT NULL,
+    difficulty_level TEXT,
+    slo_reference TEXT,
+    FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE,
+    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+    FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
+)');
+
+$pdo->exec('CREATE TABLE exam_papers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    is_read INTEGER NOT NULL DEFAULT 0,
+    class_id INTEGER NOT NULL,
+    subject_id INTEGER NOT NULL,
+    created_by INTEGER NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ("draft", "finalized")),
     created_at TEXT NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (class_id) REFERENCES classes(id),
+    FOREIGN KEY (subject_id) REFERENCES subjects(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+)');
+
+$pdo->exec('CREATE TABLE exam_paper_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    paper_id INTEGER NOT NULL,
+    question_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    FOREIGN KEY (paper_id) REFERENCES exam_papers(id) ON DELETE CASCADE,
+    FOREIGN KEY (question_id) REFERENCES questions(id)
 )');
 
 $userModel = new App\Models\User($pdo);
-$siteModel = new App\Models\Site($pdo);
-$taskModel = new App\Models\Task($pdo);
+$userModel->create('System Admin', 'admin@school.local', 'admin12345', 'admin');
+$userModel->create('School Head', 'head@school.local', 'head12345', 'user');
 
-if (!$userModel->findByUsername('admin')) {
-    $userModel->create('admin', 'System Admin', 'admin123', 'admin');
-}
-if (!$userModel->findByUsername('worker1')) {
-    $userModel->create('worker1', 'Worker One', 'worker123', 'worker');
+$academicModel = new App\Models\Academic($pdo);
+$academicModel->createClass('Grade 9');
+$academicModel->createClass('Grade 10');
+$academicModel->createSubject(1, 'Mathematics');
+$academicModel->createSubject(1, 'Physics');
+$academicModel->createChapter(1, 'Algebra');
+$academicModel->createChapter(1, 'Geometry');
+$academicModel->createChapter(2, 'Motion');
+
+$questionModel = new App\Models\QuestionBank($pdo);
+$samples = [
+    ['chapter_id' => 1, 'question_type' => 'MCQ', 'question_text' => 'What is 2x + 3 = 11? Solve for x.', 'marks' => 2],
+    ['chapter_id' => 1, 'question_type' => 'Short Question', 'question_text' => 'Define linear equation.', 'marks' => 3],
+    ['chapter_id' => 2, 'question_type' => 'True/False', 'question_text' => 'All squares are rectangles.', 'marks' => 1],
+    ['chapter_id' => 2, 'question_type' => 'Long Question', 'question_text' => 'Prove Pythagoras theorem with a diagram.', 'marks' => 8],
+    ['chapter_id' => 3, 'question_type' => 'Fill in the Blanks', 'question_text' => 'Velocity is displacement divided by ____.', 'marks' => 1],
+    ['chapter_id' => 3, 'question_type' => 'SLO-Based', 'question_text' => 'Apply Newton\'s second law to calculate force.', 'marks' => 5],
+];
+foreach ($samples as $sample) {
+    $questionModel->create([
+        'class_id' => 1,
+        'subject_id' => $sample['chapter_id'] === 3 ? 2 : 1,
+        'chapter_id' => $sample['chapter_id'],
+        'question_type' => $sample['question_type'],
+        'question_text' => $sample['question_text'],
+        'marks' => $sample['marks'],
+        'difficulty_level' => 'medium',
+        'slo_reference' => 'SLO-' . $sample['chapter_id'],
+    ]);
 }
 
-$sites = $siteModel->all();
-if (count($sites) === 0) {
-    $siteModel->create('Site Alpha', 'Downtown');
-    $siteModel->create('Site Beta', 'Uptown');
-}
-
-$workers = $userModel->allWorkers();
-$sites = $siteModel->all();
-$tasks = $taskModel->allWithUsers();
-if (count($tasks) === 0 && isset($workers[0], $sites[0])) {
-    $taskModel->create('Foundation Inspection', (int) $workers[0]['id'], (int) $sites[0]['id'], 'Inspect and record foundation progress.');
-}
-
-echo "Setup complete.\nAdmin login: admin / admin123\nWorker login: worker1 / worker123\n";
+echo "Setup complete.\nAdmin: admin@school.local / admin12345\nSchool Head: head@school.local / head12345\n";
